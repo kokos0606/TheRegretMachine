@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>The Regret Machine - 후회 제조기</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;700;900&display=swap');
+        
+        :root {
+            --primary-red: #ff3e3e;
+            --dark-bg: #050505;
+            --card-bg: #111;
+        }
+
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: var(--dark-bg);
+            color: #fff;
+            -webkit-tap-highlight-color: transparent;
+            overflow-x: hidden;
+        }
+
+        .gradient-text {
+            background: linear-gradient(90deg, #ff3e3e, #ffaa00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .input-group {
+            position: relative;
+            margin-bottom: 1rem;
+        }
+
+        .input-style {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: white;
+            appearance: none;
+            transition: all 0.3s;
+        }
+        
+        .input-style:focus {
+            border-color: var(--primary-red);
+            box-shadow: 0 0 15px rgba(255, 62, 62, 0.2);
+            outline: none;
+        }
+
+        /* Animation Classes */
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-slide-up {
+            animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .pulse-red {
+            animation: pulseRed 2s infinite;
+        }
+
+        @keyframes pulseRed {
+            0% { box-shadow: 0 0 0 0 rgba(255, 62, 62, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(255, 62, 62, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 62, 62, 0); }
+        }
+
+        .progress-bar-bg {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 999px;
+            overflow: hidden;
+            height: 8px;
+        }
+
+        .progress-bar-fill {
+            background: linear-gradient(90deg, #ff3e3e, #ffaa00);
+            height: 100%;
+            width: 0%;
+            transition: width 1.5s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(5px);
+            z-index: 50;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        /* Number Counter Style */
+        .count-up {
+            font-variant-numeric: tabular-nums;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center min-h-screen p-4 pb-20">
+
+    <!-- Header -->
+    <header class="text-center mb-8 mt-6 w-full max-w-md">
+        <h1 class="text-4xl font-900 italic tracking-tighter uppercase leading-none">
+            The <span class="gradient-text">Regret</span><br>Machine
+        </h1>
+        <p class="text-gray-500 text-xs mt-2 tracking-widest uppercase">당신의 선택이 낳은 비극적 결과</p>
+    </header>
+
+    <main class="w-full max-w-md space-y-6">
+        <!-- Input Section -->
+        <section class="card p-6 relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-1 h-full bg-red-600"></div>
+            <div class="space-y-5">
+                <div>
+                    <label class="text-[11px] font-bold text-gray-400 mb-1 block uppercase">놓쳐버린 종목 (주식/코인)</label>
+                    <input type="text" id="stock-name" placeholder="예: 삼성전자, 비트코인, 에코프로" class="input-style w-full rounded-xl p-4 text-sm font-bold placeholder-gray-600">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-[11px] font-bold text-gray-400 mb-1 block uppercase">언제 샀어야 했나</label>
+                        <input type="date" id="start-date" class="input-style w-full rounded-xl p-4 text-xs font-bold text-gray-300">
+                    </div>
+                    <div>
+                        <label class="text-[11px] font-bold text-gray-400 mb-1 block uppercase">투자 원금 (KRW)</label>
+                        <input type="number" id="investment-amount" placeholder="예: 1000000" class="input-style w-full rounded-xl p-4 text-sm font-bold placeholder-gray-600">
+                    </div>
+                </div>
+
+                <button id="calculate-btn" class="w-full bg-white text-black font-900 py-4 rounded-xl text-lg hover:bg-gray-200 transition-colors flex justify-center items-center gap-2 mt-2">
+                    <i class="fa-solid fa-calculator"></i> 후회 계산 시작
+                </button>
+            </div>
+        </section>
+
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" class="loading-overlay hidden">
+            <div class="text-center space-y-4">
+                <div class="w-16 h-16 border-4 border-red-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                <p class="text-xl font-bold italic animate-pulse">과거 시세 조회 중...</p>
+                <p class="text-xs text-gray-400">당신의 기억폭력을 준비하고 있습니다.</p>
+            </div>
+        </div>
+
+        <!-- Result Section -->
+        <div id="result-section" class="hidden space-y-5">
+            
+            <!-- 1. Main Financial Impact -->
+            <div class="card p-6 border border-red-500/30 relative overflow-hidden animate-slide-up">
+                <div class="absolute -right-10 -top-10 w-40 h-40 bg-red-600 blur-[80px] opacity-20"></div>
+                
+                <p class="text-xs text-gray-400 font-bold mb-1"><span id="res-date" class="text-white"></span>, 당신의 선택은...</p>
+                <div class="flex items-baseline gap-2 mb-2">
+                    <h2 id="final-asset" class="text-4xl md:text-5xl font-black text-red-500 count-up">0</h2>
+                    <span class="text-lg font-bold text-red-500">원</span>
+                </div>
+                
+                <div class="flex items-center gap-3 mb-6">
+                    <span id="profit-badge" class="bg-red-500/20 text-red-400 text-xs px-2 py-1 rounded font-bold border border-red-500/20">+0%</span>
+                    <span class="text-xs text-gray-400">이 되었습니다.</span>
+                </div>
+
+                <!-- Visual Bar -->
+                <div class="mb-6">
+                    <div class="flex justify-between text-[10px] text-gray-500 mb-1 uppercase font-bold">
+                        <span>투자 원금</span>
+                        <span>현재 가치</span>
+                    </div>
+                    <div class="progress-bar-bg relative">
+                        <!-- Original Amount Marker -->
+                        <div id="original-marker" class="absolute left-0 top-0 h-full bg-gray-600 z-10 w-[1px]"></div>
+                        <div id="profit-bar" class="progress-bar-fill"></div>
+                    </div>
+                </div>
+
+                <!-- Detail Table -->
+                <div class="bg-black/40 rounded-xl p-4 text-xs space-y-2 border border-white/5">
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-500">당시 1주 가격</span>
+                        <span id="price-then" class="font-bold text-gray-300">₩0</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-500">살 수 있었던 수량</span>
+                        <span id="quantity-bought" class="font-bold text-white">0 주</span>
+                    </div>
+                    <div class="h-px bg-white/10 my-1"></div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-500">현재 1주 가격</span>
+                        <span id="price-now" class="font-bold text-red-400">₩0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. Tangible Visualization (The Regret Items) -->
+            <div class="space-y-3 animate-slide-up" style="animation-delay: 0.2s">
+                <h3 class="text-sm font-bold text-gray-500 ml-1 uppercase">이 돈이면 할 수 있었던 것들</h3>
+                
+                <!-- Item: Car -->
+                <div class="card p-4 flex items-center gap-4 hover:bg-white/5 transition-colors">
+                    <div class="w-12 h-12 rounded-full bg-gradient-to-br from-gray-700 to-black flex items-center justify-center text-2xl border border-white/10">
+                        🚗
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-[10px] text-gray-500 font-bold uppercase">그랜저 GN7 (4,500만 원)</p>
+                        <div class="flex items-baseline gap-1">
+                            <span id="vis-car" class="text-xl font-black text-white">0</span>
+                            <span class="text-sm font-bold text-gray-400">대</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Item: iPhone -->
+                <div class="card p-4 flex items-center gap-4 hover:bg-white/5 transition-colors">
+                    <div class="w-12 h-12 rounded-full bg-gradient-to-br from-gray-700 to-black flex items-center justify-center text-2xl border border-white/10">
+                        📱
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-[10px] text-gray-500 font-bold uppercase">아이폰 16 Pro (155만 원)</p>
+                        <div class="flex items-baseline gap-1">
+                            <span id="vis-iphone" class="text-xl font-black text-white">0</span>
+                            <span class="text-sm font-bold text-gray-400">대</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Item: Chicken -->
+                <div class="card p-4 flex items-center gap-4 hover:bg-white/5 transition-colors">
+                    <div class="w-12 h-12 rounded-full bg-gradient-to-br from-gray-700 to-black flex items-center justify-center text-2xl border border-white/10">
+                        🍗
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-[10px] text-gray-500 font-bold uppercase">황금올리브 치킨 (2.5만 원)</p>
+                        <div class="flex items-baseline gap-1">
+                            <span id="vis-chicken" class="text-xl font-black text-white">0</span>
+                            <span class="text-sm font-bold text-gray-400">마리</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Actions -->
+            <div class="pt-4 space-y-3 animate-slide-up" style="animation-delay: 0.4s">
+                <button id="share-btn" class="w-full bg-[#FAE300] text-[#3B1E1E] font-bold py-4 rounded-xl flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-comment"></i> 카카오톡/링크로 고통 공유하기
+                </button>
+                <button onclick="window.scrollTo({top:0, behavior:'smooth'})" class="w-full border border-gray-700 text-gray-400 font-bold py-3 rounded-xl text-xs hover:bg-white/5">
+                    다른 종목 확인하기
+                </button>
+            </div>
+            
+            <p class="text-center text-[10px] text-gray-600 pt-8 pb-4">
+                * 실제 시장 가격과 다소 차이가 있을 수 있으며,<br>모든 후회의 책임은 본인에게 있습니다.
+            </p>
+        </div>
+    </main>
+
+    <script>
+        const API_KEY = ""; // Gemini API Key (Auto injected)
+
+        const VALS = {
+            car: 45000000,
+            iphone: 1550000,
+            chicken: 25000
+        };
+
+        const calcBtn = document.getElementById('calculate-btn');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        
+        calcBtn.addEventListener('click', async () => {
+            const stock = document.getElementById('stock-name').value;
+            const date = document.getElementById('start-date').value;
+            const amount = parseFloat(document.getElementById('investment-amount').value);
+
+            if (!stock || !date || !amount) {
+                alert("모든 정보를 입력해주세요. 그래야 정확히 후회할 수 있습니다.");
+                return;
+            }
+
+            loadingOverlay.classList.remove('hidden');
+
+            try {
+                // AI Prompt: Requesting specific unit prices for clarity
+                const prompt = `
+                Scenario: Investment Analysis.
+                Input: User invested ${amount} KRW in "${stock}" on ${date}.
+                Task:
+                1. Find the approximate unit price of ${stock} on ${date} (price_then).
+                2. Find the approximate unit price of ${stock} NOW (price_now).
+                3. Calculate how many units (quantity) could be bought with ${amount} KRW then.
+                4. Calculate the total value (final_amount) of that quantity today.
+                5. Calculate the percentage change (rate).
+                
+                Output JSON ONLY:
+                {
+                    "price_then": number (in KRW),
+                    "price_now": number (in KRW),
+                    "quantity": number (float, 2 decimals),
+                    "final_amount": number (integer),
+                    "rate": number (float, 1 decimal)
+                }
+                If data is unavailable, estimate based on historical trends.`;
+
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+
+                const data = await response.json();
+                const text = data.candidates[0].content.parts[0].text.replace(/```json|```/g, "").trim();
+                const result = JSON.parse(text);
+
+                renderResult(result, stock, date, amount);
+
+            } catch (err) {
+                console.error(err);
+                alert("데이터를 불러오는데 실패했습니다. 네트워크 상태를 확인해주세요.");
+            } finally {
+                loadingOverlay.classList.add('hidden');
+            }
+        });
+
+        function renderResult(data, stockName, dateStr, originalAmount) {
+            const section = document.getElementById('result-section');
+            section.classList.remove('hidden');
+
+            // 1. Text Data Update
+            document.getElementById('res-date').innerText = dateStr;
+            document.getElementById('profit-badge').innerText = (data.rate > 0 ? '+' : '') + data.rate + '%';
+            
+            // Detail Table
+            document.getElementById('price-then').innerText = '₩' + Math.floor(data.price_then).toLocaleString();
+            document.getElementById('price-now').innerText = '₩' + Math.floor(data.price_now).toLocaleString();
+            document.getElementById('quantity-bought').innerText = data.quantity + ' 주/코인';
+
+            // 2. Count Up Animation for Final Asset
+            animateValue("final-asset", 0, data.final_amount, 1500);
+
+            // 3. Visualization Items (Decimal supported for realism)
+            document.getElementById('vis-car').innerText = (data.final_amount / VALS.car).toFixed(2);
+            document.getElementById('vis-iphone').innerText = (data.final_amount / VALS.iphone).toFixed(1);
+            document.getElementById('vis-chicken').innerText = Math.floor(data.final_amount / VALS.chicken).toLocaleString();
+
+            // 4. Progress Bar Animation
+            // If profit is huge, bar fills up. If loss, bar shrinks.
+            const bar = document.getElementById('profit-bar');
+            // Simple logic: if profit > 0, width is 100%. If loss, width scales down.
+            // Actually better: Visualize growth factor.
+            // But for "Regret", usually it's profit missed.
+            setTimeout(() => {
+                if (data.rate >= 0) {
+                    bar.style.width = '100%';
+                    bar.style.background = 'linear-gradient(90deg, #ff3e3e, #ffaa00)';
+                } else {
+                    // Loss scenario
+                    const lossWidth = Math.max(0, 100 + data.rate); // rate is negative
+                    bar.style.width = lossWidth + '%';
+                    bar.style.background = '#333';
+                }
+            }, 300);
+
+            // Scroll to view
+            window.scrollTo({ top: section.offsetTop - 50, behavior: 'smooth' });
+        }
+
+        // Counter Animation Function
+        function animateValue(id, start, end, duration) {
+            const obj = document.getElementById(id);
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                // Ease-out effect
+                const easedProgress = 1 - Math.pow(1 - progress, 3);
+                const current = Math.floor(easedProgress * (end - start) + start);
+                obj.innerHTML = current.toLocaleString();
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                }
+            };
+            window.requestAnimationFrame(step);
+        }
+
+        // Web Share API
+        document.getElementById('share-btn').addEventListener('click', async () => {
+            const finalVal = document.getElementById('final-asset').innerText;
+            const stock = document.getElementById('stock-name').value;
+            const carCount = document.getElementById('vis-car').innerText;
+            
+            const shareData = {
+                title: '후회 제조기 (The Regret Machine)',
+                text: `[충격] 내가 그때 ${stock} 샀으면 지금 자산이 ${finalVal}원... 그랜저 ${carCount}대 날렸습니다. 님들도 확인해보셈 ㄱㄱ`,
+                url: window.location.href
+            };
+
+            try {
+                if (navigator.share) {
+                    await navigator.share(shareData);
+                } else {
+                    const dummy = document.createElement('input');
+                    document.body.appendChild(dummy);
+                    dummy.value = `${shareData.text}\n${shareData.url}`;
+                    dummy.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(dummy);
+                    alert("공유 텍스트가 복사되었습니다!");
+                }
+            } catch (err) {
+                console.log(err);
+            }
+        });
+    </script>
+</body>
+</html>
